@@ -1,0 +1,6 @@
+@import "tailwindcss";
+
+/* Basic RTL support switch via dir attribute */
+html[dir="rtl"] {
+  direction: rtl;
+}
