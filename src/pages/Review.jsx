@@ -1,10 +1,10 @@
 import { useNavigate } from "react-router-dom";
-import { useFormContext } from "../context/FormContext";
+import { useFormContext } from "../hooks/useFormContext";
 import { useTranslation } from "react-i18next";
 import { useState } from "react";
-import { submitForm } from "../lib/api";
 import LoadingButton from "../components/LoadingButton";
 import { formatNumber } from "../lib/numberFormat";
+import { mockSubmit } from "../lib/apiClient";
 
 export default function Review() {
   const nav = useNavigate();
@@ -14,16 +14,16 @@ export default function Review() {
   const [error, setError] = useState("");
 
   const onSubmit = async () => {
-    setSubmitting(true);
     setError("");
     try {
-      await submitForm(data);
+      await mockSubmit(data)
       nav("/success", { replace: true });
     } catch (e) {
-      setError(e?.message || "Submission failed. Please try again.");
+       setError(e?.message || "Submission failed. Please try again.");
     } finally {
       setSubmitting(false);
     }
+
   };
 
   const P = data.personal;

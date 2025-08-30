@@ -1,17 +1,13 @@
-import {
-  validatePersonal,
-  validateFamily,
-  validateSituation,
-} from "../validation/validators";
+import { personalSchema, familySchema, situationSchema } from "../validation/schemas";
 
 export function isStep1Complete(data) {
-  return validatePersonal(data?.personal).valid;
+  return !!personalSchema.safeParse(data?.personal).success;
 }
 export function isStep2Complete(data) {
-  return validateFamily(data?.family).valid;
+  return !!familySchema.safeParse(data?.family).success;
 }
 export function isStep3Complete(data) {
-  return validateSituation(data?.situation).valid;
+  return !!situationSchema.safeParse(data?.situation).success;
 }
 
 export function firstIncompleteStep(data) {
@@ -21,17 +17,13 @@ export function firstIncompleteStep(data) {
   return 4; // all complete
 }
 
-export function stepToPath(stepNum) {
-  switch (stepNum) {
-    case 1:
-      return "/step-1";
-    case 2:
-      return "/step-2";
-    case 3:
-      return "/step-3";
-    case 4:
-      return "/review";
-    default:
-      return "/step-1";
-  }
+const STEP_TO_PATH = {
+  1: "/step-1",
+  2: "/step-2",
+  3: "/step-3",
+  4: "/review",
+};
+export function stepToPath(stepIndex) {
+  return STEP_TO_PATH[stepIndex] || "/step-1";
 }
+export { STEP_TO_PATH };

@@ -1,36 +1,43 @@
 import { useNavigate } from "react-router-dom";
 import { useForm } from "react-hook-form";
-import { makeResolver } from "../validation/rhfResolver";
+import { useFormContext } from "../hooks/useFormContext";
+import { useTranslation } from "react-i18next";
+import { useEffect, useRef } from "react";
+import { zodResolver } from "@hookform/resolvers/zod";
 import {
-  validateFamily,
+  familySchema,
   MARITAL,
   EMPLOYMENT,
   HOUSING,
-} from "../validation/validators";
-import { useFormContext } from "../context/FormContext";
-import { Field } from "../components/Field";
-import { useTranslation } from "react-i18next";
-import { useEffect } from "react";
+} from "../validation/schemas";
+import { SelectInput } from "../components/controls/SelectInput";
+import { TextInput } from "../components/controls/TextInput";
 
 export default function Step2Finance() {
   const nav = useNavigate();
   const { data, setData, registerPageReset, resumed } = useFormContext();
   const { t } = useTranslation();
+  const hydratedRef = useRef(false);
 
   const {
     register,
     handleSubmit,
     formState: { errors, isValid, isSubmitting },
     reset: formReset,
+    watch,
+    getValues,
   } = useForm({
     mode: "onChange",
-    resolver: makeResolver(validateFamily),
+    resolver: zodResolver(familySchema),
     defaultValues: data.family,
   });
 
-  // Rehydrate on reload
+  // Rehydrate on resume (reload)
   useEffect(() => {
-    if (resumed) formReset(data.family);
+    if (resumed && !hydratedRef.current) {
+      formReset(data.family);
+      hydratedRef.current = true;
+    }
   }, [resumed, data.family, formReset]);
 
   // Global Reset support
@@ -47,7 +54,35 @@ export default function Step2Finance() {
     return () => registerPageReset(null);
   }, [registerPageReset, formReset]);
 
-
+  // Save-on-typing: merge only fields that are currently valid (no error)
+  const watched = watch([
+    "maritalStatus",
+    "dependents",
+    "employmentStatus",
+    "income",
+    "housingStatus",
+  ]);
+  useEffect(() => {
+    const id = setTimeout(() => {
+      const v = getValues();
+      const update = {};
+      // add only valid + non-empty fields so we don't overwrite good data with invalid
+      [
+        "maritalStatus",
+        "dependents",
+        "employmentStatus",
+        "income",
+        "housingStatus",
+      ].forEach((k) => {
+        if (!errors?.[k] && v[k] !== undefined && v[k] !== "") {
+          update[k] = v[k];
+        }
+      });
+      if (Object.keys(update).length === 0) return;
+      setData((d) => ({ ...d, family: { ...(d.family || {}), ...update } }));
+    }, 400);
+    return () => clearTimeout(id);
+  }, [watched, errors, getValues, setData]);
 
   const onSubmit = (values) => {
     setData((d) => ({ ...d, family: values }));
@@ -59,84 +94,75 @@ export default function Step2Finance() {
       <h2 className="text-lg font-semibold">{t("steps.family")}</h2>
 
       {/* Marital Status */}
-      <Field
+
+      <SelectInput
+        required
         label={t("fields.maritalStatus")}
         error={errors.maritalStatus?.message}
+        defaultValue={data.family.maritalStatus || ""}
+        {...register("maritalStatus")}
       >
-        <select
-          className="w-full rounded-lg border px-3 py-2"
-          defaultValue={data.family.maritalStatus || ""}
-          {...register("maritalStatus")}
-        >
-          <option value="">{t("placeholders.maritalStatus")}</option>
-          {MARITAL.map((k) => (
-            <option key={k} value={k}>
-              {t(`options.marital.${k}`)}
-            </option>
-          ))}
-        </select>
-      </Field>
+        <option value="">{t("placeholders.maritalStatus")}</option>
+        {MARITAL.map((k) => (
+          <option key={k} value={k}>
+            {t(`options.marital.${k}`)}
+          </option>
+        ))}
+      </SelectInput>
 
       {/* Dependents */}
-      <Field label={t("fields.dependents")} error={errors.dependents?.message}>
-        <input
-          className="w-full rounded-lg border px-3 py-2"
-          type="number"
-          min={0}
-          step={1}
-          {...register("dependents", { valueAsNumber: true })}
-          placeholder={t("placeholders.dependents")}
-        />
-      </Field>
+      <TextInput
+        required
+        label={t("fields.dependents")}
+        error={errors.dependents?.message}
+        type="number"
+        min={0}
+        step={1}
+        placeholder={t("placeholders.dependents")}
+        {...register("dependents", { valueAsNumber: true })}
+      />
 
       {/* Employment Status */}
-      <Field
+      <SelectInput
+        required
         label={t("fields.employmentStatus")}
         error={errors.employmentStatus?.message}
+        {...register("employmentStatus")}
       >
-        <select
-          className="w-full rounded-lg border px-3 py-2"
-          defaultValue={data.family.employmentStatus || ""}
-          {...register("employmentStatus")}
-        >
-          <option value="">{t("placeholders.employmentStatus")}</option>
-          {EMPLOYMENT.map((k) => (
-            <option key={k} value={k}>
-              {t(`options.employment.${k}`)}
-            </option>
-          ))}
-        </select>
-      </Field>
+        <option value="">{t("placeholders.employmentStatus")}</option>
+        {EMPLOYMENT.map((k) => (
+          <option key={k} value={k}>
+            {t(`options.employment.${k}`)}
+          </option>
+        ))}
+      </SelectInput>
 
       {/* Monthly Income */}
-      <Field label={t("fields.income")} error={errors.income?.message}>
-        <input
-          className="w-full rounded-lg border px-3 py-2"
-          type="text"
-          inputMode="decimal"
-          {...register("income", { valueAsNumber: true })}
-          placeholder={t("placeholders.income")}
-        />
-      </Field>
+      <TextInput
+        required
+        label={t("fields.income")}
+        error={errors.income?.message}
+        type="text"
+        inputMode="decimal"
+        placeholder={t("placeholders.income")}
+        {...register("income", { valueAsNumber: true })}
+      />
 
       {/* Housing Status */}
-      <Field
+      <SelectInput
+        required
         label={t("fields.housingStatus")}
         error={errors.housingStatus?.message}
+        defaultValue={data.family.housingStatus || ""}
+        {...register("housingStatus")}
       >
-        <select
-          className="w-full rounded-lg border px-3 py-2"
-          defaultValue={data.family.housingStatus || ""}
-          {...register("housingStatus")}
-        >
-          <option value="">{t("placeholders.housingStatus")}</option>
-          {HOUSING.map((k) => (
-            <option key={k} value={k}>
-              {t(`options.housing.${k}`)}
-            </option>
-          ))}
-        </select>
-      </Field>
+        <option value="">{t("placeholders.housingStatus")}</option>
+        {HOUSING.map((k) => (
+          <option key={k} value={k}>
+            {t(`options.housing.${k}`)}
+          </option>
+        ))}
+      </SelectInput>
 
       <div className="flex justify-between gap-3 pt-4">
         <button

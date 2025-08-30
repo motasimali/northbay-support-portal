@@ -1,11 +1,14 @@
 import { createBrowserRouter, Navigate, RouterProvider } from "react-router-dom";
+import { lazy } from "react";
 import RootLayout from "./layouts/RootLayout";
-import Step1Personal from "./pages/Step1Personal";
-import Step2Finance from "./pages/Step2Finance";
-import Step3Situation from "./pages/Step3Situation";
 import Review from "./pages/Review";
 import Success from "./pages/Success";
 import RequireStep from "./routes/RequireStep";
+import ErrorBoundary from "./components/ErrorBoundary";
+
+const Step1Personal = lazy(() => import("./pages/Step1Personal"));
+const Step2Finance = lazy(() => import("./pages/Step2Finance"));
+const Step3Situation = lazy(() => import("./pages/Step3Situation"));
 
 const router = createBrowserRouter([
   {
@@ -44,5 +47,9 @@ const router = createBrowserRouter([
 ]);
 
 export default function App() {
-  return <RouterProvider router={router} />;
+  return (
+    <ErrorBoundary>
+        <RouterProvider router={router} />
+    </ErrorBoundary>
+  ); 
 }

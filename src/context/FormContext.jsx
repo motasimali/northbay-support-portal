@@ -1,10 +1,5 @@
-// NOTE: Small project — we colocate Provider + Context + useFormContext here
-// for simplicity. If the app grows, we can move useFormContext to src/hooks/ and
-// re-export without breaking imports.
-
 import {
   createContext,
-  useContext,
   useEffect,
   useMemo,
   useRef,
@@ -12,7 +7,8 @@ import {
 } from "react";
 import { loadForm, saveForm, clearForm, debounce } from "../lib/storage";
 
-const FormContext = createContext(null);
+// eslint-disable-next-line react-refresh/only-export-components
+export const FormContext = createContext(null);
 
 const steps = [
   { id: 1, path: "/step-1", labelKey: "steps.personal" },
@@ -40,10 +36,10 @@ const defaultData = {
     income: "",
     housingStatus: "",
   },
-  situation: { 
+  situation: {
     financial: "",
     employment: "",
-    reason: "" 
+    reason: "",
   },
 };
 
@@ -64,6 +60,18 @@ export function FormProvider({ children }) {
   const debouncedSaveRef = useRef(debounce(saveForm, 500));
   useEffect(() => {
     debouncedSaveRef.current(data);
+  }, [data]);
+
+  useEffect(() => {
+    const flush = () => {
+      saveForm(data);
+    };
+    window.addEventListener("pagehide", flush);
+    window.addEventListener("beforeunload", flush);
+    return () => {
+      window.removeEventListener("pagehide", flush);
+      window.removeEventListener("beforeunload", flush);
+    };
   }, [data]);
 
   const registerPageReset = (fn) => {
@@ -90,10 +98,3 @@ export function FormProvider({ children }) {
   return <FormContext.Provider value={value}>{children}</FormContext.Provider>;
 }
 
-// Come up with the better name for useFormContext because react-hook-form also has useFormContext
-// eslint-disable-next-line react-refresh/only-export-components
-export function useFormContext() {
-  const ctx = useContext(FormContext);
-  if (!ctx) throw new Error("useFormContext must be used inside <FormProvider>");
-  return ctx;
-}

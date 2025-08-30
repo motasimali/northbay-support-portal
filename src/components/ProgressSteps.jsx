@@ -1,5 +1,5 @@
 import { Link, useLocation } from "react-router-dom";
-import { useFormContext } from "../context/FormContext";
+import { useFormContext } from "../hooks/useFormContext";
 import clsx from "clsx";
 import { useTranslation } from "react-i18next";
 import {
@@ -13,7 +13,8 @@ export default function ProgressSteps() {
   const { t } = useTranslation();
 
   const activeIndex = Math.max(0, steps.findIndex((s) => s.path === pathname));
-  const pct = ((activeIndex + 1) / steps.length) * 100;
+  const isReview = pathname === "/review" || pathname === "/success";
+  const pct = isReview ? 100 : ((activeIndex + 1) / steps.length) * 100;
 
   // Compute last step the user is allowed to visit (current + previous complete)
   const can1 = true; // step 1 always allowed

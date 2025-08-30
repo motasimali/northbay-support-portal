@@ -1,31 +1,38 @@
 import { useNavigate } from "react-router-dom";
 import { useForm } from "react-hook-form";
-import { makeResolver } from "../validation/rhfResolver";
-import { validatePersonal } from "../validation/validators";
-import { useFormContext } from "../context/FormContext";
-import { Field } from "../components/Field";
+import { useFormContext } from "../hooks/useFormContext";
 import { useTranslation } from "react-i18next";
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { personalSchema } from "../validation/schemas";
+import { TextInput } from "../components/controls/TextInput";
+import { SelectInput } from "../components/controls/SelectInput";
 
 export default function Step1Personal() {
   const nav = useNavigate();
   const { data, setData, registerPageReset, resumed } = useFormContext();
   const { t } = useTranslation();
+  const hydratedRef = useRef(false);
 
   const {
     register,
     handleSubmit,
     formState: { errors, isValid, isSubmitting },
     reset: formReset,
+    watch,
+    getValues,
   } = useForm({
     mode: "onChange",
-    resolver: makeResolver(validatePersonal),
+    resolver: zodResolver(personalSchema),
     defaultValues: data.personal,
   });
 
   // Rehydrate on resume (reload)
   useEffect(() => {
-    if (resumed) formReset(data.personal);
+    if (resumed && !hydratedRef.current) {
+      formReset(data.personal);
+      hydratedRef.current = true;
+    }
   }, [resumed, data.personal, formReset]);
 
   // Global Reset support
@@ -47,112 +54,150 @@ export default function Step1Personal() {
     return () => registerPageReset(null);
   }, [registerPageReset, formReset]);
 
+  // Save-on-typing: merge only fields that are currently valid (no error)
+  const watched = watch([
+    "name",
+    "nationalId",
+    "dob",
+    "gender",
+    "address",
+    "city",
+    "state",
+    "country",
+    "phone",
+    "email",
+  ]);
+  useEffect(() => {
+    const id = setTimeout(() => {
+      const v = getValues();
+      const update = {};
+      // add only valid + non-empty fields so we don't overwrite good data with invalid
+      [
+        "name",
+        "nationalId",
+        "dob",
+        "gender",
+        "address",
+        "city",
+        "state",
+        "country",
+        "phone",
+        "email",
+      ].forEach((k) => {
+        if (!errors?.[k] && v[k] !== undefined && v[k] !== "") {
+          update[k] = v[k];
+        }
+      });
+      if (Object.keys(update).length === 0) return;
+      setData((d) => ({ ...d, personal: { ...(d.personal || {}), ...update } }));
+    }, 400);
+    return () => clearTimeout(id);
+  }, [watched, errors, getValues, setData]);
+
   const onSubmit = (values) => {
     setData((d) => ({ ...d, personal: values }));
     nav("/step-2");
   };
-
+  
+    
   return (
     <form className="space-y-4" onSubmit={handleSubmit(onSubmit)}>
       <h2 className="text-lg font-semibold">{t("steps.personal")}</h2>
 
-      <Field label={t("fields.name")} error={errors.name?.message}>
-        <input
-          className="w-full rounded-lg border px-3 py-2"
-          placeholder={t("placeholders.name")}
-          {...register("name")}
-        />
-      </Field>
+      <TextInput
+        required
+        label={t("fields.name")}
+        error={errors.name?.message}
+        placeholder={t("placeholders.name")}
+        {...register("name")}
+      />
 
-      <Field label={t("fields.nationalId")} error={errors.nationalId?.message}>
-        <input
-          className="w-full rounded-lg border px-3 py-2"
-          placeholder={t("placeholders.nationalId")}
-          {...register("nationalId")}
-        />
-      </Field>
+      <TextInput
+        required
+        label={t("fields.nationalId")}
+        error={errors.nationalId?.message}
+        placeholder={t("placeholders.nationalId")}
+        {...register("nationalId")}
+      />
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-        <Field label={t("fields.dob")} error={errors.dob?.message}>
-          <input
-            className="w-full rounded-lg border px-3 py-2"
-            type="date"
-            placeholder={t("placeholders.dob")}
-            {...register("dob")}
-          />
-        </Field>
+        <TextInput
+          required
+          label={t("fields.dob")}
+          error={errors.dob?.message}
+          type="date"
+          placeholder={t("placeholders.dob")}
+          {...register("dob")}
+        />
 
-        <Field label={t("fields.gender")} error={errors.gender?.message}>
-          <select
-            className="w-full rounded-lg border px-3 py-2"
-            defaultValue={data.personal.gender || ""}
-            {...register("gender")}
-          >
-            <option value="">{t("placeholders.gender")}</option>
-            <option value="male">{t("options.gender.male")}</option>
-            <option value="female">{t("options.gender.female")}</option>
-            <option value="other">{t("options.gender.other")}</option>
-            <option value="prefer_not">
-              {t("options.gender.prefer_not")}
-            </option>
-          </select>
-        </Field>
+        <SelectInput
+          required
+          label={t("fields.gender")}
+          error={errors.gender?.message}
+          {...register("gender")}
+        >
+          <option value="">{t("placeholders.gender")}</option>
+          <option value="male">{t("options.gender.male")}</option>
+          <option value="female">{t("options.gender.female")}</option>
+          <option value="other">{t("options.gender.other")}</option>
+          <option value="prefer_not">{t("options.gender.prefer_not")}</option>
+        </SelectInput>
       </div>
 
-      <Field label={t("fields.address")} error={errors.address?.message}>
-        <input
-          className="w-full rounded-lg border px-3 py-2"
-          placeholder={t("placeholders.address")}
-          {...register("address")}
-        />
-      </Field>
+      <TextInput
+        required
+        label={t("fields.address")}
+        error={errors.address?.message}
+        placeholder={t("placeholders.address")}
+        {...register("address")}
+      />
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-        <Field label={t("fields.city")} error={errors.city?.message}>
-          <input
-            className="w-full rounded-lg border px-3 py-2"
-            placeholder={t("placeholders.city")}
-            {...register("city")}
-          />
-        </Field>
+        <TextInput
+          required
+          label={t("fields.city")}
+          error={errors.city?.message}
+          placeholder={t("placeholders.city")}
+          {...register("city")}
+        />
 
-        <Field label={t("fields.state")} error={errors.state?.message}>
-          <input
-            className="w-full rounded-lg border px-3 py-2"
-            placeholder={t("placeholders.state")}
-            {...register("state")}
-          />
-        </Field>
+        <TextInput
+          required
+          label={t("fields.state")}
+          error={errors.state?.message}
+          placeholder={t("placeholders.state")}
+          {...register("state")}
+        />
 
-        <Field label={t("fields.country")} error={errors.country?.message}>
-          <input
-            className="w-full rounded-lg border px-3 py-2"
-            placeholder={t("placeholders.country")}
-            {...register("country")}
-          />
-        </Field>
+        <TextInput
+          required
+          label={t("fields.country")}
+          error={errors.country?.message}
+          placeholder={t("placeholders.country")}
+          {...register("country")}
+        />
       </div>
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-        <Field label={t("fields.phone")} error={errors.phone?.message}>
-          <input
-            className="w-full rounded-lg border px-3 py-2"
-            type="tel"
-            inputMode="tel"
-            placeholder={t("placeholders.phone")}
-            {...register("phone")}
-          />
-        </Field>
+        <TextInput
+          required
+          label={t("fields.phone")}
+          error={errors.phone?.message}
+          type="tel"
+          inputMode="tel"
+          placeholder={t("placeholders.phone")}
+          {...register("phone")}
+        />
 
-        <Field label={t("fields.email")} error={errors.email?.message}>
-          <input
-            className="w-full rounded-lg border px-3 py-2"
-            type="email"
-            placeholder={t("placeholders.email")}
-            autoComplete="email"
-            {...register("email")}
-          />
-        </Field>
+        <TextInput
+          required
+          label={t("fields.email")}
+          error={errors.email?.message}
+          type="email"
+          placeholder={t("placeholders.email")}
+          autoComplete="email"
+          {...register("email")}
+        />
       </div>
 
       <div className="flex justify-end gap-3 pt-4">

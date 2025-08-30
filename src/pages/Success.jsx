@@ -1,7 +1,7 @@
 import { useEffect, useRef } from "react";
 import { Link } from "react-router-dom";
 import { useTranslation } from "react-i18next";
-import { useFormContext } from "../context/FormContext";
+import { useFormContext } from "../hooks/useFormContext";
 
 export default function Success() {
   const { t } = useTranslation();

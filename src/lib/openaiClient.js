@@ -1,21 +1,35 @@
-const MODEL = import.meta.env.VITE_OPENAI_MODEL || "gpt-3.5-turbo";
+import axios from "axios";
+
+export const MODEL = import.meta.env.VITE_OPENAI_MODEL || "gpt-3.5-turbo";
 const API_KEY = import.meta.env.VITE_OPENAI_API_KEY;
+
+// Dedicated axios instance for OpenAI so app interceptors don't interfere
+const apiOpenAI = axios.create({
+  baseURL: "https://api.openai.com/v1",
+  timeout: 15000,
+});
+
+apiOpenAI.interceptors.request.use((config) => {
+  if (!API_KEY) {
+    throw new Error("Missing VITE_OPENAI_API_KEY. Add it to your .env file.");
+  }
+  config.headers = {
+    ...(config.headers || {}),
+    Authorization: `Bearer ${API_KEY}`,
+    "Content-Type": "application/json",
+  };
+  return config;
+});
 
 export async function suggestText({
   notes,
   section,
   lang = "en",
   timeoutMs = 15000,
+  signal,
 }) {
-  if (!API_KEY) {
-    throw new Error("Missing VITE_OPENAI_API_KEY. Add it to your .env file.");
-  }
-
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), timeoutMs);
-
+  // Prompt logic preserved 1:1 with your original
   const languageName = lang === "ar" ? "Arabic" : "English";
-
   const system = [
     `You help an applicant draft short, neutral statements for a social support application.`,
     `Write only in ${languageName}.`,
@@ -30,14 +44,9 @@ export async function suggestText({
   const user = `User notes for "${section}": """${(notes || "").trim()}"""`;
 
   try {
-    const res = await fetch("https://api.openai.com/v1/chat/completions", {
-      method: "POST",
-      signal: controller.signal,
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${API_KEY}`,
-      },
-      body: JSON.stringify({
+    const { data } = await apiOpenAI.post(
+      "/chat/completions",
+      {
         model: MODEL,
         messages: [
           { role: "system", content: system },
@@ -47,30 +56,26 @@ export async function suggestText({
         top_p: 1,
         presence_penalty: 0,
         frequency_penalty: 0.2,
-      }),
-    });
-
-    clearTimeout(timer);
-
-    if (!res.ok) {
-      let msg = "Suggestion request failed.";
-      try {
-        const err = await res.json();
-        if (err?.error?.message) msg = err.error.message;
-      } catch (err) {
-        console.log(err);
+      },
+      {
+        signal,
+        timeout: timeoutMs,
       }
-      throw new Error(msg);
-    }
+    );
 
-    const data = await res.json();
     const suggestion = data?.choices?.[0]?.message?.content?.trim();
     if (!suggestion) throw new Error("No suggestion text returned.");
     return suggestion;
   } catch (e) {
-    if (e.name === "AbortError") {
-      throw new Error("The request timed out. Please try again.");
+    // Timeout/cancel
+    if (e.name === "CanceledError" || e.name === "AbortError") {
+      throw new Error("The request timed out or was canceled.");
     }
-    throw e;
+    // OpenAI error body bubble-up
+    const msg =
+      e?.response?.data?.error?.message ||
+      e?.message ||
+      "Suggestion request failed.";
+    throw new Error(msg);
   }
 }

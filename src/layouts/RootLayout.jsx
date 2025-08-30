@@ -1,9 +1,10 @@
 // src/layouts/RootLayout.jsx
 import { Outlet, useNavigate, useLocation, Link } from "react-router-dom";
 import ProgressSteps from "../components/ProgressSteps";
-import { useFormContext } from "../context/FormContext";
+import { useFormContext } from "../hooks/useFormContext";
 import LanguageSwitcher from "../components/LanguageSwitcher";
 import { useTranslation } from "react-i18next";
+import { Suspense } from "react";
 
 export default function RootLayout() {
   const { reset, resumed } = useFormContext();
@@ -52,7 +53,9 @@ export default function RootLayout() {
         )}
 
         <div className="rounded-2xl border bg-white p-6 shadow-sm">
-          <Outlet />
+          <Suspense>
+            <Outlet />
+          </Suspense> 
         </div>
       </main>
     </div>
