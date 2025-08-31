@@ -64,46 +64,46 @@ export default function Step3Situation() {
     nav("/review");
   };
 
-  const currentValues = watch();
+  const [financial, employment, reason] = watch([
+    "financial",
+    "employment",
+    "reason",
+  ]);
+
   const MIN = 20;
   const isValidField = (v) => (v?.trim()?.length || 0) >= MIN;
   const valid = {
-    financial: isValidField(currentValues.financial),
-    employment: isValidField(currentValues.employment),
-    reason: isValidField(currentValues.reason),
+    financial: isValidField(financial),
+    employment: isValidField(employment),
+    reason: isValidField(reason),
   };
 
-  // Save-on-typing: merge only fields that are currently valid (no error)
-  const watched = watch([
-    "financial",
-    "employment",
-    "reason"
-  ]);
+  // Save-on-typing (debounced): merge only fields that are currently valid (no error)
   useEffect(() => {
     const id = setTimeout(() => {
       const v = getValues();
       const update = {};
-      // add only valid + non-empty fields so we don't overwrite good data with invalid
-      [
-        "financial",
-        "employment",
-        "reason"
-      ].forEach((k) => {
+      ["financial", "employment", "reason"].forEach((k) => {
         if (!errors?.[k] && v[k] !== undefined && v[k] !== "") {
           update[k] = v[k];
         }
       });
       if (Object.keys(update).length === 0) return;
-      setData((d) => ({ ...d, situation: { ...(d.situation || {}), ...update } }));
+      setData((d) => ({
+        ...d,
+        situation: { ...(d.situation || {}), ...update },
+      }));
     }, 400);
     return () => clearTimeout(id);
-  }, [watched, errors, getValues, setData]);
+  }, [financial, employment, reason, errors, getValues, setData]);
 
   const labels = {
     financial: t("fields.financial"),
     employment: t("fields.employment"),
     reason: t("fields.reason"),
   };
+
+  const currentByField = { financial, employment, reason };
 
   return (
     <>
@@ -173,7 +173,6 @@ export default function Step3Situation() {
           </div>
         </TextArea>
 
-
         <div className="flex justify-between gap-3 pt-2">
           <button
             type="button"
@@ -199,7 +198,7 @@ export default function Step3Situation() {
           open={helpOpen}
           onClose={handleClose}
           sectionLabel={labels[activeField]}
-          seedText={currentValues?.[activeField] || ""}
+          seedText={currentByField?.[activeField] || ""}
           onAccept={(text) => {
             setValue(activeField, text, {
               shouldValidate: true,
